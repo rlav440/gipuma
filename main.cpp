@@ -820,6 +820,9 @@ static int runGipuma ( InputFiles &inputFiles,
     if (!inputFiles.seed_file.empty())
     {
         // TODO
+
+        // Load in the image. (maybe can store as float for writing)
+        // Image is loaded in as depths
     }
 
     size_t avail;
@@ -835,13 +838,13 @@ static int runGipuma ( InputFiles &inputFiles,
     writeParametersToFile ( resultsFile, inputFiles, algParams, gtParameters, numPixels );
 
     //allocation for disparity and normal stores
+    // TODO are these used for the later results
     vector<Mat_<float> > disp ( algParams.num_img_processed );
     vector<Mat_<uchar> > validCost ( algParams.num_img_processed );
     for ( int i = 0; i < algParams.num_img_processed; i++ ) {
         disp[i] = Mat::zeros ( img_grayscale[0].rows, img_grayscale[0].cols, CV_32F );
         validCost[i] = Mat::zeros ( img_grayscale[0].rows, img_grayscale[0].cols, CV_8U );
     }
-
         Mat testImg_display;
     //visualize normals on a halfsphere (just for comparision with normal result image)
     {
@@ -908,6 +911,11 @@ static int runGipuma ( InputFiles &inputFiles,
 
         double minVal, maxVal;
         minMaxLoc ( disp[i], &minVal, &maxVal );
+
+        // TODO write to the disparity arrays
+        // For every camera pair, precalced
+        // Take the loaded disp seeds
+        // convert to disp for the suggested camera pairs
     }
     cout << "Range of Minimum/Maximum depth is: " << algParams.min_disparity << " " << algParams.max_disparity << ", change it with --depth_min=<value> and  --depth_max=<value>" <<endl;
 
@@ -970,9 +978,10 @@ static int runGipuma ( InputFiles &inputFiles,
     cudaMemGetInfo( &avail, &total );
     used = total - avail;
     //printf("Device memory used: %fMB\n", used/1000000.0f);
-    runcuda(*gs);
+    runcuda(*gs); // TODO this is where the code is actually run!
     Mat_<Vec3f> norm0 = Mat::zeros ( img_grayscale[0].rows, img_grayscale[0].cols, CV_32FC3 );
     Mat_<float> cudadisp = Mat::zeros ( img_grayscale[0].rows, img_grayscale[0].cols, CV_32FC1 );
+
     for( int i = 0; i < img_grayscale[0].cols; i++ )
         for( int j = 0; j < img_grayscale[0].rows; j++ )
         {

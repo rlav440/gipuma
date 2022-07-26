@@ -1015,6 +1015,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     float disp_now;
     float4 norm_now;
 
+    //TODO RIP THIS OUT
     curandState localState = gs.cs[p.y*cols+p.x];
     curand_init ( clock64(), p.y, p.x, &localState );
 
@@ -1025,6 +1026,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     getViewVector_cu ( &viewVector, camera, p);
     //printf("Random number is %f\n", random_number);
     //return;
+
     disp_now = curand_between(&localState, mind, maxd);
 
     rndUnitVectorOnHemisphere_cu ( &norm_now, viewVector, &localState );
@@ -1049,6 +1051,20 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
                                                  0);
     return;
 }
+
+template< typename T >
+__global__ void gipuma_seed_init_cu2(GlobalState &gs){
+    const int2 p = make_int2 ( blockIdx.x * blockDim.x + threadIdx.x, blockIdx.y * blockDim.y + threadIdx.y );
+    const int rows = gs.cameras->rows;
+    const int cols = gs.cameras->cols;
+
+    if (p.x>=cols)
+        return;
+    if (p.y>=rows)
+        return;
+}
+
+
 template< typename T >
 __global__ void gipuma_initial_cost(GlobalState &gs)
 {
@@ -1903,14 +1919,16 @@ void gipuma(GlobalState &gs)
     printf("Number of iterations is %d\n", maxiter);
     //gipuma_init_cu<T><<< (rows + BLOCK_H-1)/BLOCK_H, BLOCK_H>>>(gs);
     //gipuma_init_random<<< grid_size_initrand, block_size_initrand>>>(gs);
+    //TODO is this where the grid memory is initialised
     gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
     //gipuma_initial_cost<T><<< grid_size_initrand, block_size_initrand>>>(gs);
     cudaEventRecord(start);
     //for (int it =0;it<gs.params.iterations; it++) {
     printf("Iteration ");
+    //TODO this is where the underlying cude kernels are run
     for (int it =0;it<maxiter; it++) {
         printf("%d ", it+1);
-#ifdef SMALLKERNEL
+    #ifdef SMALLKERNEL
         //spatial propagation of 4 closest neighbors (1px up/down/left/right)
         gipuma_black_spatialPropClose_cu<T><<< grid_size, block_size, shared_size_host * sizeof(T)>>>(gs, it);
         cudaDeviceSynchronize();

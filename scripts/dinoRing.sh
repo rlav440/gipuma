@@ -1,6 +1,6 @@
 #!
-prog="./gipuma"
-warping="../fusibile/fusibile"
+prog="../gipuma"
+warping="/home/rlav440/CLionProjects/fusibile/fusibile"
 inputdir="data/dinoRing/"
 batch_name="dinoRing"
 output_dir_basename="results/$batch_name"

@@ -40,9 +40,12 @@ do
 	    image_list+=( $ij )
 	fi
     done
-    cmd="$prog ${image_list[@]} -images_folder $inputdir -krt_file $p_folder -output_folder $output_dir -no_display --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
+
+    cmd="$prog ${image_list[@]} -images_folder $inputdir -krt_file $p_folder -output_folder $output_dir --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
     echo $cmd
     $cmd
+
+
     let "count += 1"
     if [ $count -eq -1 ]
     then
