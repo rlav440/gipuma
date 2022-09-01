@@ -37,7 +37,19 @@ struct GTcheckParameters {
 
 //pathes to input images (camera images, ground truth, ...)
 struct InputFiles {
-    InputFiles () : gt_filename ( "" ), gt_nocc_filename ( "" ), occ_filename ( "" ), gt_normal_filename ( "" ), calib_filename ( "" ), images_folder ( "" ), p_folder ( "" ), camera_folder ( "" ),krt_file(""), pmvs_folder("") {}
+    InputFiles () : gt_filename ( "" ),
+                   gt_nocc_filename ( "" ),
+                   occ_filename ( "" ),
+                   gt_normal_filename ( "" ),
+                   calib_filename ( "" ),
+                   images_folder ( "" ),
+                   p_folder ( "" ),
+                   camera_folder ( "" ),
+                   krt_file(""),
+                   pmvs_folder(""),
+                   depth_seed(""),
+                   normal_seed(""),
+    {}
     vector<string> img_filenames; // input camera images (only filenames, path is set in images_folder), names can also be used for calibration data (e.g. for Strecha P, camera)
     string gt_filename; // ground truth image
     string gt_nocc_filename; // non-occluded ground truth image (as provided e.g. by Kitti)
@@ -51,6 +63,8 @@ struct InputFiles {
     string bounding_folder; //path to bounding volume (Strecha)
     string seed_file; // path to bounding volume (Strecha)
     string pmvs_folder; // path to pmvs folder
+    string depth_seed; // path to the depth seed
+    string normal_seed; // path to the normal seed
 };
 
 //pathes to output files
