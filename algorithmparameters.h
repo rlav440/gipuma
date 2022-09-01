@@ -48,7 +48,8 @@ struct AlgorithmParameters : public Managed{
         max_angle          (45.0f), // CUDA
         no_texture_sim     (0.9f), // CUDA
         no_texture_per     (0.6f), // CUDA
-        max_views          (9) {}
+        max_views          (9),
+        seeded             (false) {}
     int algorithm; // algorithm cost type
     float max_disparity; // maximal disparity value CUDA
     float min_disparity; // minimum disparity value (default 0) CUDA
@@ -79,6 +80,7 @@ struct AlgorithmParameters : public Managed{
     float no_texture_sim; // CUDA
     float no_texture_per; // CUDA
     unsigned int max_views;
+    bool seeded;
     // hack XXX
     int cols;
     int rows;
