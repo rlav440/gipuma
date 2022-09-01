@@ -51,7 +51,7 @@ for im in $image_list_array; do
   depth_seed=${depth_list_array[$count]}
   normal_seed=${norm_list_array[$count]}
 
-  cmd="$prog ${image_list[@]} -images_folder $input_dir -krt_file $p_folder -output_folder $output_dir --depth_seed=$depth_seed --normal_seed=$normal_seed --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
+  cmd="$prog ${image_list[@]} -images_folder $input_dir -krt_file $p_folder -output_folder $output_dir --depth_seed $depth_seed --normal_seed $normal_seed --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
   echo $cmd
   #$cmd
 
