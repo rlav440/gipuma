@@ -216,6 +216,9 @@ static int getParametersFromCommandLine ( int argc,
     const char* pmvs_folder_opt = "--pmvs_folder";
     const char* camera_idx_opt = "--camera_idx=";
 
+    const char* depth_seed = "--depth_seed=";
+    const char* depth_normal = "--normal_seed=";
+
     //read in arguments
     for ( int i = 1; i < argc; i++ ) {
         if ( argv[i][0] != '-' )
@@ -275,6 +278,10 @@ static int getParametersFromCommandLine ( int argc,
             algParams.box_hsize = k_size;
             algParams.box_vsize = k_size;
         }
+        else if ( strncmp(argv[i]), depth_seed, strlen(depth_seed))==0){
+                sscanf(arv[i] + strlen(depth_seed))
+            }
+
         else if ( strncmp ( argv[i], cost_good_factor_opt, strlen ( cost_good_factor_opt ) ) == 0 )
         {
             sscanf ( argv[i] + strlen ( cost_good_factor_opt ), "%f", &algParams.good_factor );
@@ -916,6 +923,10 @@ static int runGipuma ( InputFiles &inputFiles,
         // For every camera pair, precalced
         // Take the loaded disp seeds
         // convert to disp for the suggested camera pairs
+
+        if (algParams.seeded){
+            // Write the disparity array to the device
+        }
     }
     cout << "Range of Minimum/Maximum depth is: " << algParams.min_disparity << " " << algParams.max_disparity << ", change it with --depth_min=<value> and  --depth_max=<value>" <<endl;
 
