@@ -8,5 +8,8 @@ normals.png
 gipuma
 results
 scripts/data
+data
 .cproject
 .project
+
+*.png
