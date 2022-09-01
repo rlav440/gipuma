@@ -11,5 +11,4 @@ scripts/data
 data
 .cproject
 .project
-
-*.png
+.png
