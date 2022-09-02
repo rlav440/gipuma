@@ -48,8 +48,8 @@ struct InputFiles {
                    krt_file(""),
                    pmvs_folder(""),
                    depth_seed(""),
-                   normal_seed(""),
-    {}
+                   normal_seed("")
+    {};
     vector<string> img_filenames; // input camera images (only filenames, path is set in images_folder), names can also be used for calibration data (e.g. for Strecha P, camera)
     string gt_filename; // ground truth image
     string gt_nocc_filename; // non-occluded ground truth image (as provided e.g. by Kitti)

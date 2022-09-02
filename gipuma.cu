@@ -102,11 +102,11 @@ __device__ FORCEINLINE_GIPUMA static float getD_cu ( const float4 &normal,
     float4 pt,ptX;
     pt.x = depth * (float)(p.x)     - cam.P_col34.x;
     pt.y = depth * (float)(p.y)     - cam.P_col34.y;
-    pt.z = depth         - cam.P_col34.z;
+    pt.z = depth                    - cam.P_col34.z;
 
     matvecmul4 (cam.M_inv, pt, (&ptX));
-
     return -(dot4(normal,ptX));
+    //TODO what is this even doing
     /*return getPlaneDistance_cu (normal, ptX);*/
 }
 // CHECKED
@@ -1030,7 +1030,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     disp_now = curand_between(&localState, mind, maxd);
 
     rndUnitVectorOnHemisphere_cu ( &norm_now, viewVector, &localState );
-    disp_now= disparityDepthConversion_cu ( camera.f, camera.baseline, disp_now);
+    disp_now = disparityDepthConversion_cu ( camera.f, camera.baseline, disp_now); //TODO how tf does this baseline change
 
     // Save values
     norm_now.w = getD_cu ( norm_now, p, disp_now,  camera);
@@ -1038,7 +1038,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     gs.lines->norm4[center] = norm_now;
 
     __shared__ T tile_leftt[1] ;
-    const int2 tmp =make_int2(0,0);
+    const int2 tmp = make_int2(0,0);
     gs.lines->c[center] = pmCostMultiview_cu<T> ( gs.imgs,
                                                  tile_leftt,
                                                  tmp,
@@ -1052,17 +1052,42 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     return;
 }
 
-template< typename T >
-__global__ void gipuma_seed_init_cu2(GlobalState &gs){
-    const int2 p = make_int2 ( blockIdx.x * blockDim.x + threadIdx.x, blockIdx.y * blockDim.y + threadIdx.y );
-    const int rows = gs.cameras->rows;
-    const int cols = gs.cameras->cols;
-
-    if (p.x>=cols)
-        return;
-    if (p.y>=rows)
-        return;
-}
+//template< typename T >
+//__global__ void gipuma_seeded_init_cu2(GlobalState &gs){ // TODO implement this
+//    const int2 p = make_int2 ( blockIdx.x * blockDim.x + threadIdx.x, blockIdx.y * blockDim.y + threadIdx.y );
+//    const int rows = gs.cameras->rows;
+//    const int cols = gs.cameras->cols;
+//
+//    if (p.x>=cols)
+//        return;
+//    if (p.y>=rows)
+//        return;
+//
+//    Camera_cu &camera = gs.cameras->cameras[REFERENCE];
+//    float4 norm_now;
+//    float depth_now;
+//    // grab the normal from the underlying normal space
+//    // grab the depth from the float texture space
+//    // get distance normal plane representation
+//    // Save values
+//    norm_now.w = getD_cu ( norm_now, p, depth_now,  camera);
+//    gs.lines->norm4[center] = norm_now;
+//
+//    __shared__ T tile_leftt[1] ;
+//    const int2 tmp = make_int2(0,0);
+//    gs.lines->c[center] = pmCostMultiview_cu<T> ( gs.imgs,
+//                                                tile_leftt,
+//                                                tmp,
+//                                                p,
+//                                                norm_now,
+//                                                box_vrad, box_hrad,
+//                                                *(gs.params),
+//                                                *(gs.cameras),
+//                                                gs.lines->norm4,
+//                                                0);
+//    return;
+//
+//}
 
 
 template< typename T >

@@ -217,7 +217,7 @@ static int getParametersFromCommandLine ( int argc,
     const char* camera_idx_opt = "--camera_idx=";
 
     const char* depth_seed = "--depth_seed";
-    const char* depth_normal = "--normal_seed";
+    const char* normal_seed = "--normal_seed";
 
     //read in arguments
     for ( int i = 1; i < argc; i++ ) {
@@ -280,11 +280,11 @@ static int getParametersFromCommandLine ( int argc,
         }
         else if ( strncmp(argv[i], depth_seed, strlen(depth_seed))==0){
                 inputFiles.depth_seed = argv[i++];
-                &algParams.seeded = true;
+                algParams.seeded = true;
             }
         else if ( strncmp(argv[i], normal_seed, strlen(normal_seed))==0){
                 inputFiles.normal_seed = argv[i++];
-                &algParams.seeded = true;
+                algParams.seeded = true;
             }
 
         else if ( strncmp ( argv[i], cost_good_factor_opt, strlen ( cost_good_factor_opt ) ) == 0 )
@@ -750,6 +750,8 @@ static int runGipuma ( InputFiles &inputFiles,
 
     vector<Mat_<Vec3b> > img_color(numImages); // imgLeft_color, imgRight_color;
     vector<Mat_<uint8_t> > img_grayscale(numImages);
+
+
     for ( size_t i = 0; i < numImages; i++ ) {
         img_grayscale[i] = imread ( ( inputFiles.images_folder + inputFiles.img_filenames[i] ), IMREAD_GRAYSCALE );
         if ( algParams.color_processing ) {
@@ -760,6 +762,20 @@ static int runGipuma ( InputFiles &inputFiles,
             printf ( "Image seems to be invalid\n" );
             return -1;
         }
+    }
+
+    if (algParams.seeded){
+        const Mat depth_seed = imread(inputFiles.depth_seed);
+        if (depth_seed.empty()){
+            std::cout << "Could not read the depth seed at: " << inputFiles.depth_seed << '\n';
+            return -1;
+        }
+        const Mat normal_seed = imread(inputFiles.normal_seed);
+        if (normal_seed.empty()){
+            std::cout << "Could not read the normal seed at: " << inputFiles.normal_seed << '\n';
+            return -1;
+        }
+
     }
 
     uint32_t rows = img_grayscale[0].rows;
@@ -930,6 +946,7 @@ static int runGipuma ( InputFiles &inputFiles,
         // convert to disp for the suggested camera pairs
 
         if (algParams.seeded){
+            inputFiles.normal_seed;
             // Write the disparity array to the device
         }
     }
