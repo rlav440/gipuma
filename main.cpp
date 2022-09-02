@@ -279,11 +279,12 @@ static int getParametersFromCommandLine ( int argc,
             algParams.box_vsize = k_size;
         }
         else if ( strncmp(argv[i], depth_seed, strlen(depth_seed))==0){
-                inputFiles.depth_seed = argv[i++];
+                i++; inputFiles.depth_seed = argv[i];
+                //printf(argv[i]);
                 algParams.seeded = true;
             }
         else if ( strncmp(argv[i], normal_seed, strlen(normal_seed))==0){
-                inputFiles.normal_seed = argv[i++];
+                i++; inputFiles.normal_seed = argv[i];
                 algParams.seeded = true;
             }
 
@@ -763,24 +764,36 @@ static int runGipuma ( InputFiles &inputFiles,
             return -1;
         }
     }
+    uint32_t rows = img_grayscale[0].rows;
+    uint32_t cols = img_grayscale[0].cols;
+    uint32_t numPixels = rows * cols;
+
+
 
     if (algParams.seeded){
-        const Mat depth_seed = imread(inputFiles.depth_seed);
+        const Mat int_depth = imread(inputFiles.depth_seed);
+        Mat depth_seed;
+        int_depth.convertTo(depth_seed, CV_32FC1,
+                            (algParams.depthMax - algParams.depthMin)/65536.0,
+                            algParams.depthMin);
+
         if (depth_seed.empty()){
             std::cout << "Could not read the depth seed at: " << inputFiles.depth_seed << '\n';
             return -1;
         }
-        const Mat normal_seed = imread(inputFiles.normal_seed);
+        const Mat int_normal = imread(inputFiles.normal_seed);
+        Mat normal_seed;
+        int_normal.convertTo(normal_seed, CV_32FC3,
+                             1.0/128, -1.0
+            );
         if (normal_seed.empty()){
             std::cout << "Could not read the normal seed at: " << inputFiles.normal_seed << '\n';
             return -1;
         }
-
+        namedWindow("Display Image", WINDOW_AUTOSIZE);
+        imshow("Display Image", depth_seed);
+        waitKey(0);
     }
-
-    uint32_t rows = img_grayscale[0].rows;
-    uint32_t cols = img_grayscale[0].cols;
-    uint32_t numPixels = rows * cols;
 
     Mat_<float> groundTruthDisp;
     Mat_<float> groundTruthDispNocc;
@@ -940,15 +953,6 @@ static int runGipuma ( InputFiles &inputFiles,
         double minVal, maxVal;
         minMaxLoc ( disp[i], &minVal, &maxVal );
 
-        // TODO write to the disparity arrays
-        // For every camera pair, precalced
-        // Take the loaded disp seeds
-        // convert to disp for the suggested camera pairs
-
-        if (algParams.seeded){
-            inputFiles.normal_seed;
-            // Write the disparity array to the device
-        }
     }
     cout << "Range of Minimum/Maximum depth is: " << algParams.min_disparity << " " << algParams.max_disparity << ", change it with --depth_min=<value> and  --depth_max=<value>" <<endl;
 
