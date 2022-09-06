@@ -28,11 +28,11 @@ public:
     curandState *cs;
     AlgorithmParameters *params;
 
-    cudaTextureObject_t imgs  [MAX_IMAGES];
+    cudaTextureObject_t imgs [MAX_IMAGES];
     cudaArray *cuArray[MAX_IMAGES];
 
-    cudaArray seed_normals;
-    cudaArray seed_depths;
+    cudaArray *seed_normals;
+    cudaArray *seed_depths;
 
     //cudaTextureObject_t gradx [MAX_IMAGES];
     //cudaTextureObject_t grady [MAX_IMAGES];

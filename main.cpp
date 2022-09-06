@@ -511,18 +511,18 @@ static void selectViews (CameraParameters &cameraParams, int imgWidth, int imgHe
         //printf("\taccepting camera %d\n", i);
 }
 
-static void add_seed_to_cuArray_f(Mat_<CV_32F> &seed, cuArray cudaArray){
+static void add_seed_to_cuArray_f(Mat &seed, cudaArray *cu_ray){
     int rows = seed.rows;
     int cols = seed.cols;
     // Create channel with uint8_t point type
-    cudaChannelFormatDesc channelDesc =  cudaCreateChannelDesc<float>();
+    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
     // Allocate array with correct size and number of channels
 
-    checkCudaErrors(cudaMallocArray(&cudaArray,
+    checkCudaErrors(cudaMallocArray(&cu_ray,
                                     &channelDesc,
                                     cols,
                                     rows));
-    checkCudaErrors(cudaMemcpy2DToArray(cudaArray,
+    checkCudaErrors(cudaMemcpy2DToArray(cu_ray,
                                         0,
                                         0,
                                         seed.ptr(),
@@ -532,18 +532,18 @@ static void add_seed_to_cuArray_f(Mat_<CV_32F> &seed, cuArray cudaArray){
                                         cudaMemcpyHostToDevice));
 }
 
-static void add_seed_to_cuArray_f3(Mat_<CV_32FC3> &seed, cuArray cudaArray){
+static void add_seed_to_cuArray_f3(Mat &seed, cudaArray *cu_ray){
     int rows = seed.rows;
     int cols = seed.cols;
     // Create channel with uint8_t point type
     cudaChannelFormatDesc channelDesc =  cudaCreateChannelDesc<float3>();
     // Allocate array with correct size and number of channels
 
-    checkCudaErrors(cudaMallocArray(&cudaArray,
+    checkCudaErrors(cudaMallocArray(&cu_ray,
                                     &channelDesc,
                                     cols,
                                     rows));
-    checkCudaErrors(cudaMemcpy2DToArray(cudaArray,
+    checkCudaErrors(cudaMemcpy2DToArray(cu_ray,
                                         0,
                                         0,
                                         seed.ptr(),
@@ -813,10 +813,11 @@ static int runGipuma ( InputFiles &inputFiles,
     uint32_t numPixels = rows * cols;
 
 
-
+    // Read initial seeds from disk if available
+    Mat depth_seed;
+    Mat normal_seed;
     if (algParams.seeded){
         const Mat int_depth = imread(inputFiles.depth_seed);
-        Mat depth_seed;
         int_depth.convertTo(depth_seed, CV_32FC1,
                             (algParams.depthMax - algParams.depthMin)/65536.0,
                             algParams.depthMin);
@@ -826,7 +827,6 @@ static int runGipuma ( InputFiles &inputFiles,
             return -1;
         }
         const Mat int_normal = imread(inputFiles.normal_seed);
-        Mat normal_seed;
         int_normal.convertTo(normal_seed, CV_32FC3,
                              1.0/128, -1.0
             );
@@ -834,9 +834,9 @@ static int runGipuma ( InputFiles &inputFiles,
             std::cout << "Could not read the normal seed at: " << inputFiles.normal_seed << '\n';
             return -1;
         }
-        namedWindow("Display Image", WINDOW_AUTOSIZE);
-        imshow("Display Image", depth_seed);
-        waitKey(0);
+//        namedWindow("Display Image", WINDOW_AUTOSIZE);
+//        imshow("Display Image", depth_seed);
+//        waitKey(0);
     }
 
     Mat_<float> groundTruthDisp;
@@ -901,14 +901,8 @@ static int runGipuma ( InputFiles &inputFiles,
         }
     }
 
-    // Read initial seeds from disk if available
-    if (!inputFiles.seed_file.empty())
-    {
-        // TODO
 
-        // Load in the image. (maybe can store as float for writing)
-        // Image is loaded in as depths
-    }
+
 
     size_t avail;
     size_t used;
@@ -923,7 +917,6 @@ static int runGipuma ( InputFiles &inputFiles,
     writeParametersToFile ( resultsFile, inputFiles, algParams, gtParameters, numPixels );
 
     //allocation for disparity and normal stores
-    // TODO are these used for the later results
     vector<Mat_<float> > disp ( algParams.num_img_processed );
     vector<Mat_<uchar> > validCost ( algParams.num_img_processed );
     for ( int i = 0; i < algParams.num_img_processed; i++ ) {
@@ -1035,8 +1028,6 @@ static int runGipuma ( InputFiles &inputFiles,
             img_color[i].convertTo (img_color_float[i], CV_32FC3); // or CV_32F works (too)
             Mat alpha( img_grayscale[0].rows, img_grayscale[0].cols, CV_32FC1 );
             //Mat out[] = { img_color_float[i], alpha };
-
-            //// add alpha channel
             //int from_to[] = { 0,0, 1,1, 2,2, 3,3 };
             //mixChannels( &img_color_float_alpha[i], 1, out, 2, from_to, 4 );
             split (img_color_float[i], rgbChannels);
@@ -1056,9 +1047,10 @@ static int runGipuma ( InputFiles &inputFiles,
     else
         addImageToTextureFloatGray (img_grayscale_float, gs->imgs, gs->cuArray);
 
+    //// If the alg is seeded, write the seeds to the array.
     if(algParams.seeded){
-        addImageToTextureFloatColor(normal_seed, gs->seed_normals, gs->cuArray)
-        addImageToTextureFloatGray(depth_seed, gs->seed_depths, gs->cuArray)
+        add_seed_to_cuArray_f(normal_seed, gs->seed_normals);
+        add_seed_to_cuArray_f(depth_seed, gs->seed_depths);
     }
 
     cudaMemGetInfo( &avail, &total );
@@ -1282,8 +1274,11 @@ static int runGipuma ( InputFiles &inputFiles,
     //printf("Device memory used: %fMB\n", used/1000000.0f);
     // Free memory
     delTexture(algParams.num_img_processed, gs->imgs, gs->cuArray);
-    cudaFreeArray(gs->seed_depths);
-    cudaFreeArray(gs->seed_normals);
+    if (algParams.seeded){
+        cudaFreeArray(gs->seed_depths);
+        cudaFreeArray(gs->seed_normals);
+        }
+
 
     delete gs;
     delete &algParams;

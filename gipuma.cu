@@ -1011,7 +1011,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     const int center = p.y*cols+p.x;
     int box_hrad = gs.params->box_hsize / 2;
     int box_vrad = gs.params->box_vsize / 2;
-o allocate all available memory with cudaMalloc / cudaMallocHost / cuMemCreate, as this forces memory to be resident immediately and prevents other applications from being able
+
     float disp_now;
     float4 norm_now;
 
@@ -1945,7 +1945,13 @@ void gipuma(GlobalState &gs)
     //gipuma_init_cu<T><<< (rows + BLOCK_H-1)/BLOCK_H, BLOCK_H>>>(gs);
     //gipuma_init_random<<< grid_size_initrand, block_size_initrand>>>(gs);
     //TODO is this where the grid memory is initialised
-    gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
+    if (gs.params->seeded){
+        gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
+    }
+    else{
+        gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
+    }
+
     //gipuma_initial_cost<T><<< grid_size_initrand, block_size_initrand>>>(gs);
     cudaEventRecord(start);
     //for (int it =0;it<gs.params.iterations; it++) {
