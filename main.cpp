@@ -511,6 +511,49 @@ static void selectViews (CameraParameters &cameraParams, int imgWidth, int imgHe
         //printf("\taccepting camera %d\n", i);
 }
 
+static void add_seed_to_cuArray_f(Mat_<CV_32F> &seed, cuArray cudaArray){
+    int rows = seed.rows;
+    int cols = seed.cols;
+    // Create channel with uint8_t point type
+    cudaChannelFormatDesc channelDesc =  cudaCreateChannelDesc<float>();
+    // Allocate array with correct size and number of channels
+
+    checkCudaErrors(cudaMallocArray(&cudaArray,
+                                    &channelDesc,
+                                    cols,
+                                    rows));
+    checkCudaErrors(cudaMemcpy2DToArray(cudaArray,
+                                        0,
+                                        0,
+                                        seed.ptr(),
+                                        seed.step[0],
+                                        cols*sizeof(CV_32FC1),
+                                        rows,
+                                        cudaMemcpyHostToDevice));
+}
+
+static void add_seed_to_cuArray_f3(Mat_<CV_32FC3> &seed, cuArray cudaArray){
+    int rows = seed.rows;
+    int cols = seed.cols;
+    // Create channel with uint8_t point type
+    cudaChannelFormatDesc channelDesc =  cudaCreateChannelDesc<float3>();
+    // Allocate array with correct size and number of channels
+
+    checkCudaErrors(cudaMallocArray(&cudaArray,
+                                    &channelDesc,
+                                    cols,
+                                    rows));
+    checkCudaErrors(cudaMemcpy2DToArray(cudaArray,
+                                        0,
+                                        0,
+                                        seed.ptr(),
+                                        seed.step[0],
+                                        cols*sizeof(CV_32FC3),
+                                        rows,
+                                        cudaMemcpyHostToDevice));
+}
+
+
 static void delTexture (int num, cudaTextureObject_t texs[], cudaArray *cuArray[])
 {
     for (int i=0; i<num; i++) {
@@ -518,6 +561,7 @@ static void delTexture (int num, cudaTextureObject_t texs[], cudaArray *cuArray[
         cudaDestroyTextureObject(texs[i]);
     }
 }
+
 
 static void addImageToTextureUint (vector<Mat_<uint8_t> > &imgs, cudaTextureObject_t texs[], cudaArray *cuArray[])
 {
@@ -1012,6 +1056,11 @@ static int runGipuma ( InputFiles &inputFiles,
     else
         addImageToTextureFloatGray (img_grayscale_float, gs->imgs, gs->cuArray);
 
+    if(algParams.seeded){
+        addImageToTextureFloatColor(normal_seed, gs->seed_normals, gs->cuArray)
+        addImageToTextureFloatGray(depth_seed, gs->seed_depths, gs->cuArray)
+    }
+
     cudaMemGetInfo( &avail, &total );
     used = total - avail;
     //printf("Device memory used: %fMB\n", used/1000000.0f);
@@ -1232,7 +1281,10 @@ static int runGipuma ( InputFiles &inputFiles,
     //used = total - avail;
     //printf("Device memory used: %fMB\n", used/1000000.0f);
     // Free memory
-    delTexture (algParams.num_img_processed, gs->imgs, gs->cuArray);
+    delTexture(algParams.num_img_processed, gs->imgs, gs->cuArray);
+    cudaFreeArray(gs->seed_depths);
+    cudaFreeArray(gs->seed_normals);
+
     delete gs;
     delete &algParams;
     cudaDeviceSynchronize();

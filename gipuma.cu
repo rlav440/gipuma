@@ -1011,7 +1011,7 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     const int center = p.y*cols+p.x;
     int box_hrad = gs.params->box_hsize / 2;
     int box_vrad = gs.params->box_vsize / 2;
-
+o allocate all available memory with cudaMalloc / cudaMallocHost / cuMemCreate, as this forces memory to be resident immediately and prevents other applications from being able
     float disp_now;
     float4 norm_now;
 
