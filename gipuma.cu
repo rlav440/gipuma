@@ -1015,7 +1015,6 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     float disp_now;
     float4 norm_now;
 
-    //TODO RIP THIS OUT
     curandState localState = gs.cs[p.y*cols+p.x];
     curand_init ( clock64(), p.y, p.x, &localState );
 
@@ -1052,42 +1051,49 @@ __global__ void gipuma_init_cu2(GlobalState &gs)
     return;
 }
 
-//template< typename T >
-//__global__ void gipuma_seeded_init_cu2(GlobalState &gs){ // TODO implement this
-//    const int2 p = make_int2 ( blockIdx.x * blockDim.x + threadIdx.x, blockIdx.y * blockDim.y + threadIdx.y );
-//    const int rows = gs.cameras->rows;
-//    const int cols = gs.cameras->cols;
-//
-//    if (p.x>=cols)
-//        return;
-//    if (p.y>=rows)
-//        return;
-//
-//    Camera_cu &camera = gs.cameras->cameras[REFERENCE];
-//    float4 norm_now;
-//    float depth_now;
-//    // grab the normal from the underlying normal space
-//    // grab the depth from the float texture space
-//    // get distance normal plane representation
-//    // Save values
-//    norm_now.w = getD_cu ( norm_now, p, depth_now,  camera);
-//    gs.lines->norm4[center] = norm_now;
-//
-//    __shared__ T tile_leftt[1] ;
-//    const int2 tmp = make_int2(0,0);
-//    gs.lines->c[center] = pmCostMultiview_cu<T> ( gs.imgs,
-//                                                tile_leftt,
-//                                                tmp,
-//                                                p,
-//                                                norm_now,
-//                                                box_vrad, box_hrad,
-//                                                *(gs.params),
-//                                                *(gs.cameras),
-//                                                gs.lines->norm4,
-//                                                0);
-//    return;
-//
-//}
+template< typename T >
+__global__ void gipuma_seeded_init_cu2(GlobalState &gs){
+    const int2 p = make_int2 ( blockIdx.x * blockDim.x + threadIdx.x, blockIdx.y * blockDim.y + threadIdx.y );
+    const int rows = gs.cameras->rows;
+    const int cols = gs.cameras->cols;
+    const int centre = p.y*cols+p.x;
+    if (p.x>=cols)
+        return;
+    if (p.y>=rows)
+        return;
+
+    Camera_cu &camera = gs.cameras->cameras[REFERENCE];
+    float3 norm_now = gs.seed_normals[centre];
+    float depth_now = gs.seed_depths[centre];
+
+    float4 w_normal;
+    // grab the normal from the underlying normal space
+    w_normal.x = norm_now.x;
+    w_normal.y = norm_now.y;
+    w_normal.z = norm_now.z;
+    w_normal.w = getD_cu(
+        w_normal, p, depth_now,  camera
+        );
+    gs.lines->norm4[centre] = w_normal;
+
+    __shared__ T tile_leftt[1];
+    const int2 tmp = make_int2(0,0);
+    int box_hrad = gs.params->box_hsize / 2;
+    int box_vrad = gs.params->box_vsize / 2;
+
+    gs.lines->c[centre] = pmCostMultiview_cu<T> (gs.imgs,
+                                                tile_leftt,
+                                                tmp,
+                                                p,
+                                                w_normal,
+                                                box_vrad, box_hrad,
+                                                *(gs.params),
+                                                *(gs.cameras),
+                                                gs.lines->norm4,
+                                                0);
+    return;
+
+}
 
 
 template< typename T >
@@ -1946,7 +1952,7 @@ void gipuma(GlobalState &gs)
     //gipuma_init_random<<< grid_size_initrand, block_size_initrand>>>(gs);
     //TODO is this where the grid memory is initialised
     if (gs.params->seeded){
-        gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
+        gipuma_seeded_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
     }
     else{
         gipuma_init_cu2<T><<< grid_size_initrand, block_size_initrand>>>(gs);
