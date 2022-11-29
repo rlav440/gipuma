@@ -472,8 +472,13 @@ static void selectViews (CameraParameters &cameraParams, int imgWidth, int imgHe
 
         float baseline = static_cast<float>(norm (cameras[0].C, cameras[i].C));
         float angle = getAngle ( viewVectorRef, vec );
-        if ( angle > minimum_angle_radians &&
-             angle < maximum_angle_radians ) //0.6 select if angle between 5.7 and 34.8 (0.6) degrees (10 and 30 degrees suggested by some paper)
+
+        if(angle > M_PI){
+            angle = abs(angle - 2*M_PI);
+        }
+        std::cout << "Found angle: " << angle << std::endl;
+        if ( true) // angle > minimum_angle_radians &&
+             //angle < maximum_angle_radians ) //0.6 select if angle between 5.7 and 34.8 (0.6) degrees (10 and 30 degrees suggested by some paper)
         {
             if ( algParams.viewSelection ) {
                 cameraParams.viewSelectionSubset.push_back ( static_cast<int>(i) );
@@ -511,48 +516,31 @@ static void selectViews (CameraParameters &cameraParams, int imgWidth, int imgHe
         //printf("\taccepting camera %d\n", i);
 }
 
-static void add_seed_to_cuArray_f(Mat &seed, cudaArray *cu_ray){
+static void add_seed_f(Mat &seed, float *& cu_ray) {
     int rows = seed.rows;
     int cols = seed.cols;
     // Create channel with uint8_t point type
-    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
-    // Allocate array with correct size and number of channels
-
-    checkCudaErrors(cudaMallocArray(&cu_ray,
-                                    &channelDesc,
-                                    cols,
-                                    rows));
-    checkCudaErrors(cudaMemcpy2DToArray(cu_ray,
-                                        0,
-                                        0,
-                                        seed.ptr(),
-                                        seed.step[0],
-                                        cols*sizeof(CV_32FC1),
-                                        rows,
-                                        cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMalloc(&cu_ray, rows * cols * sizeof(float)));
+    checkCudaErrors(cudaMemcpy(cu_ray,
+                               seed.ptr<float>(),
+                               rows * cols * sizeof(float),
+                               cudaMemcpyHostToDevice));
 }
 
-static void add_seed_to_cuArray_f3(Mat &seed, cudaArray *cu_ray){
+static void add_seed_f3(Mat &seed, float3* & cu_ray){
     int rows = seed.rows;
     int cols = seed.cols;
     // Create channel with uint8_t point type
-    cudaChannelFormatDesc channelDesc =  cudaCreateChannelDesc<float3>();
     // Allocate array with correct size and number of channels
 
-    checkCudaErrors(cudaMallocArray(&cu_ray,
-                                    &channelDesc,
-                                    cols,
-                                    rows));
-    checkCudaErrors(cudaMemcpy2DToArray(cu_ray,
-                                        0,
-                                        0,
-                                        seed.ptr(),
-                                        seed.step[0],
-                                        cols*sizeof(CV_32FC3),
-                                        rows,
-                                        cudaMemcpyHostToDevice));
+    std::cout << cu_ray << std::endl;
+    checkCudaErrors(cudaMalloc(&cu_ray, rows*cols*sizeof(float)*3));
+    checkCudaErrors(cudaMemcpy(cu_ray,
+                seed.ptr<float>(),
+                sizeof(float)*rows*cols*3,
+                cudaMemcpyHostToDevice));
+    std::cout << cu_ray << std::endl;
 }
-
 
 static void delTexture (int num, cudaTextureObject_t texs[], cudaArray *cuArray[])
 {
@@ -816,19 +804,21 @@ static int runGipuma ( InputFiles &inputFiles,
     // Read initial seeds from disk if available
     Mat depth_seed;
     Mat normal_seed;
+
     if (algParams.seeded){
-        const Mat int_depth = imread(inputFiles.depth_seed);
+        const Mat int_depth = imread(inputFiles.depth_seed, -1);
         int_depth.convertTo(depth_seed, CV_32FC1,
                             (algParams.depthMax - algParams.depthMin)/65536.0,
-                            algParams.depthMin);
+                    algParams.depthMin);
+
 
         if (depth_seed.empty()){
             std::cout << "Could not read the depth seed at: " << inputFiles.depth_seed << '\n';
             return -1;
         }
-        const Mat int_normal = imread(inputFiles.normal_seed);
+        const Mat int_normal = imread(inputFiles.normal_seed, -1);
         int_normal.convertTo(normal_seed, CV_32FC3,
-                             1.0/128, -1.0
+                             2.0/65536.0, -1.0
             );
         if (normal_seed.empty()){
             std::cout << "Could not read the normal seed at: " << inputFiles.normal_seed << '\n';
@@ -1013,7 +1003,6 @@ static int runGipuma ( InputFiles &inputFiles,
         gs->lines->s = cols;
         gs->lines->l = cols;
     }
-
     vector<Mat > img_grayscale_float(numImages);
     vector<Mat > img_color_float(numImages);
     vector<Mat > img_color_float_alpha(numImages);
@@ -1048,10 +1037,18 @@ static int runGipuma ( InputFiles &inputFiles,
         addImageToTextureFloatGray (img_grayscale_float, gs->imgs, gs->cuArray);
 
     //// If the alg is seeded, write the seeds to the array.
+    std::cout << "pre_alloc: " << gs->seed_normals << std::endl;
+
+    float * ds;
+    float3 * ns;
     if(algParams.seeded){
-        add_seed_to_cuArray_f(normal_seed, gs->seed_normals);
-        add_seed_to_cuArray_f(depth_seed, gs->seed_depths);
+        add_seed_f3(normal_seed, ns);
+        add_seed_f(depth_seed, ds);
     }
+    gs->seed_normals = ns;
+    gs->seed_depths = ds;
+
+    std::cout << "post_alloc: " << gs->seed_normals << std::endl;
 
     cudaMemGetInfo( &avail, &total );
     used = total - avail;
@@ -1275,15 +1272,14 @@ static int runGipuma ( InputFiles &inputFiles,
     // Free memory
     delTexture(algParams.num_img_processed, gs->imgs, gs->cuArray);
     if (algParams.seeded){
-        cudaFreeArray(gs->seed_depths);
-        cudaFreeArray(gs->seed_normals);
+        cudaFree(gs->seed_depths);
+        cudaFree(gs->seed_normals);
         }
 
 
     delete gs;
     delete &algParams;
     cudaDeviceSynchronize();
-
     //cudaMemGetInfo( &avail, &total );
     //used = total - avail;
     //printf("Device memory used: %fMB\n", used/1000000.0f);

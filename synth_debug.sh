@@ -16,8 +16,8 @@ iter=8
 cost_gamma=10
 cost_comb="best_n"
 n_best=2
-depth_max=0.7
-depth_min=0.1
+depth_max=0.8
+depth_min=0.3
 image_list_array=$( cd $input_dir && ls *.png)
 cd $normal_dir || exit
 norm_list_array=(*.png)
@@ -32,7 +32,7 @@ disp_thresh=0.5
 normal_thresh=30
 num_consistent=1
 min_angle=5
-max_angle=45
+max_angle=70
 
 # options to run over all data
 count=0
@@ -52,14 +52,13 @@ for im in $image_list_array; do
   depth_seed=${depth_list_array[$count]}
   normal_seed=${norm_list_array[$count]}
 
-  cmd="$prog ${image_list[@]} -images_folder $input_dir -krt_file $p_folder -output_folder $output_dir --depth_seed $depth_dir$depth_seed --normal_seed $normal_dir$normal_seed --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
+  cmd="cuda-memcheck $prog ${image_list[@]} -images_folder $input_dir -krt_file $p_folder -output_folder $output_dir --depth_seed $depth_dir$depth_seed --normal_seed $normal_dir$normal_seed --cam_scale=$scale --iterations=$iter --blocksize=$blocksize --cost_gamma=$cost_gamma --cost_comb=best_n --n_best=$n_best --depth_max=$depth_max --depth_min=$depth_min --min_angle=$min_angle --max_angle=$max_angle"
   echo $cmd
   $cmd
+  break
 
   let "count += 1"
   if [ $count -eq -1 ]; then
     break
   fi
 done
-echo $warping -input_folder $output_dir -krt_file $p_folder -images_folder $input_dir --cam_scale=$scale --depth_min=$depth_min --depth_max=$depth_max --disp_thresh=$disp_thresh --normal_thresh=$normal_thresh --num_consistent=$num_consistent
-$warping -input_folder $output_dir -krt_file $p_folder -images_folder $input_dir --cam_scale=$scale --depth_min=$depth_min --depth_max=$depth_max --disp_thresh=$disp_thresh --normal_thresh=$normal_thresh --num_consistent=$num_consistent

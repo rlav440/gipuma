@@ -1065,12 +1065,14 @@ __global__ void gipuma_seeded_init_cu2(GlobalState &gs){
     Camera_cu &camera = gs.cameras->cameras[REFERENCE];
     float3 norm_now = gs.seed_normals[centre];
     float depth_now = gs.seed_depths[centre];
-
     float4 w_normal;
+    float n_scale = 1.0/sqrt(
+          norm_now.x*norm_now.x + norm_now.y*norm_now.y + norm_now.z*norm_now.z
+    );
     // grab the normal from the underlying normal space
-    w_normal.x = norm_now.x;
-    w_normal.y = norm_now.y;
-    w_normal.z = norm_now.z;
+    w_normal.x = norm_now.x*n_scale;
+    w_normal.y = norm_now.y*n_scale;
+    w_normal.z = norm_now.z*n_scale;
     w_normal.w = getD_cu(
         w_normal, p, depth_now,  camera
         );
