@@ -926,6 +926,17 @@ __device__ FORCEINLINE_GIPUMA static float pmCostMultiview_cu (
             float c = 0;
 #ifdef SHARED
             if (tile_offset.x!= 0 )
+#ifdef FIXED_GRADIENT
+                c = pmCost_shared_fixed_gradients<T> ( images[REFERENCE],
+                                     tile_left,
+                                     tile_offset,
+                                     images[idxCurr],
+                                     p,
+                                     normal,
+                                     vRad, hRad,
+                                     algParam, camParams,
+                                     idxCurr );
+#else
                 c = pmCost_shared<T> ( images[REFERENCE],
                                        tile_left,
                                        tile_offset,
@@ -935,8 +946,20 @@ __device__ FORCEINLINE_GIPUMA static float pmCostMultiview_cu (
                                        vRad, hRad,
                                        algParam, camParams,
                                        idxCurr );
+#endif
             else
 #endif
+#ifdef FIXED_GRADIENT
+                c = pmCost_fixed_gradient<T> ( images[REFERENCE],
+                              tile_left,
+                              tile_offset,
+                              images[idxCurr],
+                              p.x, p.y,
+                              normal,
+                              vRad, hRad,
+                              algParam, camParams,
+                              idxCurr );
+#else
                 c = pmCost<T> ( images[REFERENCE],
                                 tile_left,
                                 tile_offset,
@@ -946,7 +969,7 @@ __device__ FORCEINLINE_GIPUMA static float pmCostMultiview_cu (
                                 vRad, hRad,
                                 algParam, camParams,
                                 idxCurr );
-
+#endif
             // only add to cost vector if viewable
             if ( c < MAXCOST )
                 numValidViews++;
