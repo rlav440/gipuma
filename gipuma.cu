@@ -24,7 +24,7 @@
 
 //#define CENSUS
 #define SHARED
-//#define FIXED_GRADIENT
+#define FIXED_GRADIENT
 //#define NOTEXTURE_CHECK
 #define WIN_INCREMENT 2
 
