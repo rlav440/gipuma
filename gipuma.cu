@@ -24,6 +24,7 @@
 
 //#define CENSUS
 #define SHARED
+//#define FIXED_GRADIENT
 //#define NOTEXTURE_CHECK
 #define WIN_INCREMENT 2
 
@@ -204,6 +205,18 @@ __device__ FORCEINLINE_GIPUMA void getCorrespondingHomographyPt_cu ( const float
     return ;
 }
 // CHECKED
+__device__ FORCEINLINE_GIPUMA void getCorrespondingFloat4Point_cu (
+    const float4 &p, const float * __restrict__ H, float4 * __restrict__ ptf ) {
+    /*getCorrespondingHomographyPt_cu ( (const float * )H, x , y , pt );*/
+    float4 pt;
+    pt.x = p.x;
+    pt.y = p.y;
+    /*pt.z = 1.0f;*/
+    matvecmul4noz(H,pt,ptf); //ptf =  H * pt;
+    vecdiv4(ptf,ptf->z); //ptf = ptf / ptf[2];
+
+    return ;
+}
 __device__ FORCEINLINE_GIPUMA void getCorrespondingFloatPoint_cu (
     const float2 &p, const float * __restrict__ H, float4 * __restrict__ ptf ) {
     /*getCorrespondingHomographyPt_cu ( (const float * )H, x , y , pt );*/
@@ -238,7 +251,7 @@ __device__ FORCEINLINE_GIPUMA float pmCostComputation_shared_fixed_gradient (
     const T * __restrict__ tile_left,
     const cudaTextureObject_t &r,
     const T &leftValue,
-    const float4 &pI,
+    const int2 &pI,
     const float4 &pt_r,
     const float4 &pt_r_up,
     const float4 &pt_r_left,
@@ -347,18 +360,70 @@ __device__ FORCEINLINE_GIPUMA float pmCostComputation_shared (
     //return 3.0;
 }
 template< typename T >
+__device__ FORCEINLINE_GIPUMA float pmCostComputation_fixed_gradient (
+    const cudaTextureObject_t &l,
+    const T * __restrict__ tile_left,
+    const cudaTextureObject_t &r,
+    const float4 &pt_l,
+    const float4 &pt_l_up,
+    const float4 &pt_l_left,
+    const float4 &pt_r,
+    const float4 &pt_r_up,
+    const float4 &pt_r_left,
+    const int &rows,
+    const int &cols,
+    const float &tau_color,
+    const float &tau_gradient,
+    const float &alpha,
+    const float &w )
+{
+    /*XXX*/
+    /*if ( pt_r.x >= 0 && */
+    /*pt_r.x < cols && */
+    /*pt_r.y >= 0 && */
+    /*pt_r.y < rows ) */
+    {
+        /*float dis = dissimilarity ( l, r, pt_l, pt_r, gradX1, gradY1, gradX2, gradY2, alpha, tau_color, tau_gradient );*/
+        const float4 s = make_float4(2.0f,2.0f,2.0f,2.0f);
+        const float4 pt_l_down = s * pt_l - pt_l_up;
+        const float4 pt_l_right = s * pt_l - pt_l_left;
+        const float4 pt_r_down = s * pt_r - pt_r_up;
+        const float4 pt_r_right = s * pt_r - pt_r_left;
+
+        const float colDiff = l1_norm ( tex2D<T>(l,pt_l.x + 0.5f,pt_l.y + 0.5f) - tex2D<T>(r,pt_r.x + 0.5f, pt_r.y + 0.5f) );
+        const float colDis = fminf ( colDiff, tau_color );
+
+        const T gx1 = tex2D<T> (l, pt_l_right.x, pt_l_right.y) - tex2D<T> (l, pt_l_left.x, pt_l_left.y);
+        const T gy1 = tex2D<T> (l, pt_l_down.x, pt_l_down.y) - tex2D<T> (l, pt_l_up.x, pt_l_up.y);
+        const T gx2 = tex2D<T> (r, pt_r_right.x, pt_r_right.y) - tex2D<T> (r, pt_r_left.x, pt_r_left.y);
+        const T gy2 = tex2D<T> (r, pt_r_down.x, pt_r_down.y) - tex2D<T> (r, pt_r_up.x, pt_r_up.y);
+
+        const T gradX = (gx1 - gx2);
+        const T gradY = (gy1 - gy2);
+
+        //gradient dissimilarity (L1) in x and y direction (multiplication by 0.5 to use tauGrad from PatchMatch stereo paper)
+        const float gradDis = fminf ( ( l1_norm ( gradX ) + l1_norm ( gradY ) ) * 0.0625f, tau_gradient );
+        //gradient dissimilarity only in x direction
+        //float gradDis = min(abs(gradX),tau_gradient);
+
+        const float dis = ( 1.f - alpha ) * colDis + alpha * gradDis;
+        return w * dis;
+    }
+    //return 3.0;
+}
+template< typename T >
 __device__ FORCEINLINE_GIPUMA float pmCostComputation (
-                                                const cudaTextureObject_t &l,
-                                                const T * __restrict__ tile_left,
-                                                const cudaTextureObject_t &r,
-                                                const float4 &pt_l,
-                                                const float4 &pt_r,
-                                                const int &rows,
-                                                const int &cols,
-                                                const float &tau_color,
-                                                const float &tau_gradient,
-                                                const float &alpha,
-                                                const float &w )
+    const cudaTextureObject_t &l,
+    const T * __restrict__ tile_left,
+    const cudaTextureObject_t &r,
+    const float4 &pt_l,
+    const float4 &pt_r,
+    const int &rows,
+    const int &cols,
+    const float &tau_color,
+    const float &tau_gradient,
+    const float &alpha,
+    const float &w )
 {
     /*XXX*/
     /*if ( pt_r.x >= 0 && */
@@ -524,19 +589,104 @@ __device__ float censusTransform_Arma_cu ( const cudaTextureObject_t &l,
  * cost computation of different cost functions
  */
 template< typename T >
+__device__ FORCEINLINE_GIPUMA static float pmCost_fixed_gradient (
+    const cudaTextureObject_t &l,
+    const T * __restrict__ tile_left,
+    const int2 tile_offset,
+    const cudaTextureObject_t &r,
+    const int &x,
+    const int &y,
+    const float4 &normal,
+    const int &vRad,
+    const int &hRad,
+    const AlgorithmParameters &algParam,
+    const CameraParameters_cu &camParams,
+    const int &camTo )
+{
+    const int cols = camParams.cols;
+    const int rows = camParams.rows;
+    const float alpha = algParam.alpha;
+    const float tau_color = algParam.tau_color;
+    const float tau_gradient = algParam.tau_gradient;
+    const float gamma = algParam.gamma;
+
+    float4 pt_c;
+    float H[16];
+    /*float H[3*3];*/
+    getHomography_cu ( camParams.cameras[REFERENCE], camParams.cameras[camTo], camParams.cameras[REFERENCE].K_inv, camParams.cameras[camTo].K, normal, normal.w, H );
+    getCorrespondingPoint_cu ( make_int2(x, y), H, &pt_c );
+
+    // XXX to review
+    //if (    pt_c.x  < hRad ||
+    //pt_c.x  >= ( float ) ( cols - hRad - 1 ) ||
+    //pt_c.y  < ( float ) vRad ||
+    //pt_c.y  >= ( float ) ( rows - vRad - 1 ) ) {
+    //return 1000; // XXX
+    //}
+
+    {
+        float cost = 0;
+        //float weightSum = 0.0f;
+        for ( int i = -hRad; i < hRad + 1; i+=WIN_INCREMENT ) {
+            for ( int j = -vRad; j < vRad + 1; j+=WIN_INCREMENT ) {
+                const int xTemp = x + i;
+                const int yTemp = y + j;
+                float4 pt_l;
+                float4 pt_l_up;
+                float4 pt_l_left;
+                pt_l.x = xTemp + 0.5f;
+                pt_l_up.x = xTemp + 0.5f;
+                pt_l_left.x = xTemp + 0.5f - 1.0f;
+                pt_l.y = yTemp + 0.5f;
+                pt_l_up.y = yTemp + 0.5f - 1.0f;
+                pt_l_left.y = yTemp + 0.5f;
+                //int2 pt_li = make_int2(xTemp, yTemp);
+
+                float w;
+
+                w = weight_cu<T> ( tex2D<T>(l, pt_l.x + 0.5f, pt_l.y + 0.5f),
+                    tex2D<T>(l,x + 0.5f,y + 0.5f), gamma);
+
+                float4 pt;
+                float4 pt_up;
+                float4 pt_left;
+
+                getCorrespondingFloat4Point_cu(pt_l_up,
+                    H,
+                    &pt_up );
+                getCorrespondingFloat4Point_cu(pt_l_left,
+                    H,
+                    &pt_left );
+                getCorrespondingFloat4Point_cu(pt_l,
+                                           H,
+                                           &pt );
+
+                cost = cost + pmCostComputation_fixed_gradient<T> (
+                      l, tile_left, r,
+                      pt_l, pt_l_up, pt_l_left,
+                      pt, pt_up, pt_left,
+                      rows, cols, tau_color, tau_gradient, alpha,  w
+                      );
+                //weightSum = weightSum + w;
+            }
+        }
+        return cost;
+    }
+}
+template< typename T >
 __device__ FORCEINLINE_GIPUMA static float pmCost (
-                                            const cudaTextureObject_t &l,
-                                            const T * __restrict__ tile_left,
-                                            const int2 tile_offset,
-                                            const cudaTextureObject_t &r,
-                                            const int &x,
-                                            const int &y,
-                                            const float4 &normal,
-                                            const int &vRad,
-                                            const int &hRad,
-                                            const AlgorithmParameters &algParam,
-                                            const CameraParameters_cu &camParams,
-                                            const int &camTo )
+    const cudaTextureObject_t &l,
+    const T * __restrict__ tile_left,
+    const int2 tile_offset,
+    const cudaTextureObject_t &r,
+    const int &x,
+    const int &y,
+    const float4 &normal,
+    const int &vRad,
+    const int &hRad,
+    const AlgorithmParameters &algParam,
+    const CameraParameters_cu &camParams,
+    const int &camTo )
 {
     const int cols = camParams.cols;
     const int rows = camParams.rows;
@@ -709,7 +859,7 @@ __device__ FORCEINLINE_GIPUMA static float pmCost_shared_fixed_gradients (
                 //const int xTemp = p.x + i;
                 //const int yTemp = p.y + j;
 
-                const float2 pI = make_float2 ( p.x + i - tile_offset.x, p.y + j - tile_offset.y);
+                const int2 pI = make_int2 ( p.x + i - tile_offset.x, p.y + j - tile_offset.y);
 
                 float w;
 #if 0
@@ -897,19 +1047,21 @@ __device__ FORCEINLINE_GIPUMA float getDisparity_cu ( const float4 &normal,
 /* cost computation for multiple images
  * combines cost of all ref-to-img correspondences
  */
+// TODO fix the calculation fof the gradient induction
 template< typename T >
 __device__ FORCEINLINE_GIPUMA static float pmCostMultiview_cu (
-                                                        const cudaTextureObject_t *images,
-                                                        const T * __restrict__ tile_left,
-                                                        const int2 tile_offset,
-                                                        const int2 p,
-                                                        const float4 &normal,
-                                                        const int &vRad,
-                                                        const int &hRad,
-                                                        const AlgorithmParameters &algParam,
-                                                        const CameraParameters_cu &camParams,
-                                                        const float4 * __restrict__ state,
-                                                        const int point)
+        const cudaTextureObject_t *images,
+        const T * __restrict__ tile_left,
+        const int2 tile_offset,
+        const int2 p,
+        const float4 &normal,
+        const int &vRad,
+        const int &hRad,
+        const AlgorithmParameters &algParam,
+        const CameraParameters_cu &camParams,
+        const float4 * __restrict__ state,
+        const int point
+    )
 {
     // iterate over all other images and compute cost
     //const int numImages = camParams.viewSelectionSubsetNumber; // CACHE
