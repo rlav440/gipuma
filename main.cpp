@@ -474,11 +474,11 @@ static void selectViews (CameraParameters &cameraParams, int imgWidth, int imgHe
         float angle = getAngle ( viewVectorRef, vec );
 
         if(angle > M_PI){
-            angle = abs(angle - 2*M_PI);
+            angle = abs(2*M_PI - angle);
         }
         std::cout << "Found angle: " << angle << std::endl;
-        if ( true) // angle > minimum_angle_radians &&
-             //angle < maximum_angle_radians ) //0.6 select if angle between 5.7 and 34.8 (0.6) degrees (10 and 30 degrees suggested by some paper)
+        if (angle > minimum_angle_radians && angle < maximum_angle_radians )
+        //0.6 select if angle between 5.7 and 34.8 (0.6) degrees (10 and 30 degrees suggested by some paper)
         {
             if ( algParams.viewSelection ) {
                 cameraParams.viewSelectionSubset.push_back ( static_cast<int>(i) );
